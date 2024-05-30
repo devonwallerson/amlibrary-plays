@@ -1,25 +1,37 @@
-import logo from './logo.svg';
-import './App.css';
+// src/App.js
+import React, { useContext, useEffect, useState } from 'react';
+import MusicKitContext from './MusicKitContext';
 
-function App() {
+const App = () => {
+  const musicKit = useContext(MusicKitContext);
+  const [userLibrary, setUserLibrary] = useState([]);
+
+  useEffect(() => {
+    const fetchUserLibrary = async () => {
+      if (musicKit) {
+        try {
+          await musicKit.authorize();
+          const library = await musicKit.api.library.songs();
+          setUserLibrary(library);
+        } catch (error) {
+          console.error('Failed to fetch user library', error);
+        }
+      }
+    };
+
+    fetchUserLibrary();
+  }, [musicKit]);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <h1>Music Library</h1>
+      <ul>
+        {userLibrary.map(song => (
+          <li key={song.id}>{song.attributes.name}</li>
+        ))}
+      </ul>
     </div>
   );
-}
+};
 
 export default App;
