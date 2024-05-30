@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/amlibrary-plays/static/js/main.8d6ca208.js",
+    "main.js": "/amlibrary-plays/static/js/main.ca536944.js",
     "index.html": "/amlibrary-plays/index.html",
-    "main.8d6ca208.js.map": "/amlibrary-plays/static/js/main.8d6ca208.js.map"
+    "main.ca536944.js.map": "/amlibrary-plays/static/js/main.ca536944.js.map"
   },
   "entrypoints": [
-    "static/js/main.8d6ca208.js"
+    "static/js/main.ca536944.js"
   ]
 }
