@@ -1,74 +1,103 @@
 import React, { useContext, useEffect, useState } from 'react';
 import MusicKitContext from './MusicKitContext';
-import SearchBar from './SearchBar'
-import SongStats from './SongStats'
+import SearchBar from './SearchBar';
+import SongStats from './SongStats';
+
+const CACHE_KEY = 'userLibraryCache';
+const CACHE_TIMESTAMP_KEY = 'userLibraryCacheTimestamp';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 const App = () => {
-  const musicKit = useContext(MusicKitContext);
+  const { musicKitInstance, musicUserToken } = useContext(MusicKitContext);
   const [userLibrary, setUserLibrary] = useState([]);
-  const [loading, setLoading] = useState(true)
-  const [selectedSong, setSelectedSong] = useState(null)
+  const [loading, setLoading] = useState(true);
+  const [selectedSong, setSelectedSong] = useState(null);
 
   useEffect(() => {
     const fetchUserLibrary = async () => {
-      if (musicKit) {
-        console.log('MusicKit instance available:', musicKit);
-        try {
-          await musicKit.authorize();
-          console.log('MusicKit authorized');
+      if (!musicUserToken) {
+        console.error('No music user token found');
+        return;
+      }
 
-          let allSongs = []; // stores songs
-          let next = true; // next song pointer
-          let offset = 0; 
-          const limit = 100
+      try {
+        let allSongs = [];
+        let offset = 0;
+        const limit = 100;
+        let hasNext = true;
 
-          while(next) {
-            const response = await musicKit.api.library.songs({limit,offset})
-            console.log(' New Batch' , response)
-            allSongs = allSongs.concat(response);
-            offset += limit; // ensures that the API will not call the same songs again
-            next = response.length > 0 // checks if there are more songs to be retrieved by api
-            console.log('New batch needed')
-          } 
+        while (hasNext) {
+          const response = await fetch(`https://api.music.apple.com/v1/me/library/songs?limit=${limit}&offset=${offset}`, {
+            headers: {
+              Authorization: `Bearer ${musicKitInstance.developerToken}`,
+              'Music-User-Token': musicUserToken,
+            },
+          });
 
-          console.log ("Library fetched!")
-          setUserLibrary(allSongs);
-          setLoading(false);
+          const data = await response.json();
+          console.log('Response Data:', data);
 
-        } catch (error) {
-          if (error.networkError) {
-            console.error('Network error:', error.networkError);
-          } else if (error.response) {
-            console.error('Response error:', error.response);
+          if (data && data.data) {
+            allSongs = allSongs.concat(data.data);
+            hasNext = data.data.length === limit;
+            offset += limit;
           } else {
-            console.error('Unknown error:', error);
+            hasNext = false;
           }
-          setLoading(false);
         }
-      } else {
-        console.log('MusicKit instance is not available yet');
+
+        console.log('Library fetched!');
+        setUserLibrary(allSongs);
+        setLoading(false);
+
+        // Cache the fetched data and timestamp
+        localStorage.setItem(CACHE_KEY, JSON.stringify(allSongs));
+        localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+
+      } catch (error) {
+        console.error('Error fetching songs:', error.message);
+        setLoading(false);
       }
     };
 
-    fetchUserLibrary();
-  }, [musicKit]);
+    const loadCachedData = () => {
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+      const currentTime = Date.now();
+
+      if (cachedData && cachedTimestamp) {
+        const cacheAge = currentTime - parseInt(cachedTimestamp, 10);
+        if (cacheAge < CACHE_DURATION) {
+          console.log('Using cached data');
+          setUserLibrary(JSON.parse(cachedData));
+          setLoading(false);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (musicUserToken) {
+      if (!loadCachedData()) {
+        fetchUserLibrary();
+      }
+    }
+  }, [musicKitInstance, musicUserToken]);
+
+  const handleSelectSong = (song) => {
+    setSelectedSong(song);
+  };
 
   if (loading) {
-    return <div>Loading...</div>
+    return <div>Loading...</div>;
   }
 
   return (
     <div>
       <h1>Music Library</h1>
-      <SearchBar userLibrary = {userLibrary} onSelectSong = {setSelectedSong}/>
-      {selectedSong && <SongStats song = {selectedSong}/>}
-
-      <ul>
-        {userLibrary.map(song => (
-          <li key={song.id}>{song.attributes.name}</li>
-        ))}
-      </ul>
-    </div> 
+      <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
+      {selectedSong && <SongStats song={selectedSong} musicUserToken={musicUserToken} />}
+    </div>
   );
 };
 

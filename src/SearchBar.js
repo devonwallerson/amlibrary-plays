@@ -9,9 +9,13 @@ const SearchBar = ({ userLibrary, onSelectSong }) => {
     setSearchQuery(query);
 
     if (query.length > 0) {
-      const results = userLibrary.filter(song =>
-        song.attributes.name.toLowerCase().includes(query.toLowerCase())
-      );
+      const results = userLibrary.filter(song => {
+        const name = song.attributes.name || '';
+        const artistName = song.attributes.artistName || '';
+
+        return name.toLowerCase().includes(query.toLowerCase()) ||
+             artistName.toLowerCase().includes(query.toLowerCase());
+      });
       setSearchResults(results);
     } else {
       setSearchResults([]);

@@ -1,10 +1,11 @@
-
 import React, { createContext, useEffect, useState } from 'react';
+import config from './config'; // Import the configuration
 
 const MusicKitContext = createContext();
 
 export const MusicKitProvider = ({ children }) => {
   const [musicKitInstance, setMusicKitInstance] = useState(null);
+  const [musicUserToken, setMusicUserToken] = useState(null);
 
   useEffect(() => {
     const configureMusicKit = async () => {
@@ -13,14 +14,19 @@ export const MusicKitProvider = ({ children }) => {
         console.log('MusicKit loaded');
         try {
           const musicKit = await window.MusicKit.configure({
-            developerToken: 'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkI2OVJGN0wyVDUifQ.eyJpYXQiOjE3MTcxMDM3NDQsImV4cCI6MTczMjY1NTc0NCwiaXNzIjoiQlhQWFY3WEg0UCJ9.vPpuST0lAYcPdGPFggBYL9kt9T7zuLaf-hlYepDhna1RRtqDb5jPwQtjb6bbulwxIHGWoDqh_jhWfyQhYRGSUQ',
+            developerToken: config.developerToken,
             app: {
-              name: 'libraryPlays',
-              build: '1978.4.1',
+              name: config.appName,
+              build: config.appBuild,
             },
           });
           console.log('MusicKit configured:', musicKit);
           setMusicKitInstance(musicKit);
+
+          // Automatically authorize the user when MusicKit is loaded
+          const userToken = await musicKit.authorize();
+          console.log('User authorized, music user token:', userToken);
+          setMusicUserToken(userToken);
         } catch (err) {
           console.error('Failed to configure MusicKit', err);
         }
@@ -37,7 +43,7 @@ export const MusicKitProvider = ({ children }) => {
   }, []);
 
   return (
-    <MusicKitContext.Provider value={musicKitInstance}>
+    <MusicKitContext.Provider value={{ musicKitInstance, musicUserToken }}>
       {children}
     </MusicKitContext.Provider>
   );
