@@ -1,10 +1,13 @@
 {
   "files": {
-    "main.js": "/amlibrary-plays/static/js/main.6c500220.js",
+    "main.css": "/amlibrary-plays/static/css/main.d5289b2f.css",
+    "main.js": "/amlibrary-plays/static/js/main.2e3abece.js",
     "index.html": "/amlibrary-plays/index.html",
-    "main.6c500220.js.map": "/amlibrary-plays/static/js/main.6c500220.js.map"
+    "main.d5289b2f.css.map": "/amlibrary-plays/static/css/main.d5289b2f.css.map",
+    "main.2e3abece.js.map": "/amlibrary-plays/static/js/main.2e3abece.js.map"
   },
   "entrypoints": [
-    "static/js/main.6c500220.js"
+    "static/css/main.d5289b2f.css",
+    "static/js/main.2e3abece.js"
   ]
 }
