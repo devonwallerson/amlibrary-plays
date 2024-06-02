@@ -1,32 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
-import Badge from 'react-bootstrap/Badge';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import config from './config'; // Import the configuration
-
 
 const ShieldBadge = styled.div`
   display: inline-block;
   padding: 0.5em 1em;
   margin: 0.5em;
   border-radius: 0.5em;
-  background-color: ${({ rank }) =>
-    rank === 1 ? '#ffd700' : rank === 2 ? '#c0c0c0' : rank === 3 ? '#cd7f32' : rank <= 5 ? '#d52aa7' : rank <= 10 ? '#9c41be' : '#ADD8E6'};
-  color: ${({ rank }) => (rank <= 10 ? 'black' : 'black')};
+  background-color: ${({ $rank }) =>
+    $rank === 1 ? '#ffd700' : $rank === 2 ? '#c0c0c0' : $rank === 3 ? '#cd7f32' : $rank <= 5 ? '#d52aa7' : $rank <= 10 ? '#9c41be' : '#ADD8E6'};
+  color: ${({ $rank }) => ($rank <= 10 ? 'black' : 'black')};
   text-align: center;
   font-weight: bold;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   line-height: 1.5;
 `;
 
-
 const MixBadge = styled.div`
   display: inline-block;
   padding: 0.5em 1em;
   margin: 0.5em;
   border-radius: 0.5em;
-  background-color: ${({ type }) => (type === 'Heavy Rotation Mix' ? '#FFA500' : '#d22d45')};
+  background-color: ${({ type }) => (type === 'Heavy Rotation Mix' ? '#FFA500' : type === 'Favorite Song' ? '#d22d45' : type === 'Recently Played' ? '#ffd700': '#ADD8E6')};
   color: black;
   text-align: center;
   font-weight: bold;
@@ -34,8 +30,7 @@ const MixBadge = styled.div`
   line-height: 1.5;
 `;
 
-
-const SongStats = ({ song, playlists, musicUserToken }) => {
+const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken }) => {
   const {
     name,
     artistName,
@@ -49,20 +44,17 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
     trackNumber,
   } = song.attributes || {}; // Provide default empty object if attributes are undefined
 
-
   const songName = name;
   const songArtist = artistName;
   const songDuration = durationInMillis;
   const songTrackNumber = trackNumber;
 
-
   const length = durationInMillis ? new Date(durationInMillis).toISOString().substr(11, 8) : 'N/A'; // Handle undefined duration
-
 
   const [replayYears, setReplayYears] = useState([]);
   const [mixes, setMixes] = useState([]);
+  const [recentlyPlayed, setRecentlyPlayed] = useState(false);
   const [loading, setLoading] = useState(false);
-
 
   useEffect(() => {
     const checkIfSongInPlaylists = async (songName, songDuration, songTrackNumber, songArtist) => {
@@ -79,20 +71,16 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
             },
           });
 
-
           if (!response.ok) {
             throw new Error('Network response was not ok');
           }
 
-
           const data = await response.json();
-
 
           const songIndex = data.data.findIndex(track =>
             (track.attributes.name === songName && track.attributes.artistName === songArtist) ||
             (track.attributes.durationInMillis === songDuration && track.attributes.trackNumber === songTrackNumber)
           );
-
 
           if (songIndex !== -1) {
             const yearMatch = playlist.attributes.name.match(/Replay (\d{4})/);
@@ -101,11 +89,10 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
               years.push({ year, position: songIndex + 1 });
             }
 
-
-            if (playlist.attributes.name.includes("Heavy Rotation Mix")) {
+            if (playlist.attributes.name.includes('Heavy Rotation Mix')) {
               mixList.push({ name: playlist.attributes.name });
             }
-            if (playlist.attributes.name.includes("Favorite Songs")) {
+            if (playlist.attributes.name.includes('Favorite Songs')) {
               mixList.push({ name: 'Favorite Song' });
             }
           }
@@ -118,12 +105,18 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
       setLoading(false);
     };
 
+    const checkIfSongRecentlyPlayed = (songName, songArtist) => {
+      const recentlyPlayed = recentlyPlayedTracks.some(track =>
+        track.attributes.name === songName && track.attributes.artistName === songArtist
+      );
+      setRecentlyPlayed(recentlyPlayed);
+    };
 
     if (song && song.attributes && playlists.length > 0) {
-      checkIfSongInPlaylists(name, durationInMillis, trackNumber, artistName);
+      checkIfSongInPlaylists(songName, songDuration, songTrackNumber, songArtist);
+      checkIfSongRecentlyPlayed(songName, songArtist);
     }
-  }, [song, playlists, musicUserToken]);
-
+  }, [song, playlists, recentlyPlayedTracks, musicUserToken]);
 
   return (
     <div>
@@ -150,9 +143,9 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
           <h3>Replay Years</h3>
           <ul>
             {replayYears.map(({ year, position }) => (
-              <ShieldBadge key={year} rank={position}>
+              <ShieldBadge key={year} $rank={position}>
                 {`Replay ${year}`}<br />
-                {/* position <= 5 ? */`Song #${position}`/* : position <= 10 ? 'Top 10 Song' : <em>Playlist Song</em>*/}
+                {/*position <= 5 ? */`Song #${position}` /* : position <= 10 ? 'Top 10 Song' : <em>Playlist Song</em>*/}
               </ShieldBadge>
             ))}
           </ul>
@@ -163,6 +156,11 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
                 {name}
               </MixBadge>
             ))}
+            {recentlyPlayed && (
+              <MixBadge key="recentlyPlayed" type = "Recently Played">
+                Recently Played
+              </MixBadge>
+            )}
           </ul>
         </>
       )}
@@ -170,12 +168,11 @@ const SongStats = ({ song, playlists, musicUserToken }) => {
   );
 };
 
-
 SongStats.propTypes = {
   song: PropTypes.object.isRequired,
   playlists: PropTypes.array.isRequired,
+  recentlyPlayedTracks: PropTypes.array.isRequired,
   musicUserToken: PropTypes.string.isRequired,
-}; // comment
-
+};
 
 export default SongStats;

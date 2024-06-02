@@ -9,6 +9,8 @@ const CACHE_TIMESTAMP_KEY = 'userLibraryCacheTimestamp';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 const PLAYLISTS_CACHE_TIMESTAMP_KEY = 'userPlaylistsCacheTimestamp';
 const PLAYLISTS_CACHE_KEY = 'userPlaylistsCache';
+const RECENTLY_PLAYED_CACHE_KEY = 'userRecentlyPlayedCache';
+const RECENTLY_PLAYED_CACHE_TIMESTAMP_KEY = 'userRecentlyPlayedCacheTimestamp';
 
 const App = () => {
   // State variables for sign in, user library, loading screen, and selected song
@@ -17,6 +19,7 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSong, setSelectedSong] = useState(null);
   const [replayPlaylists, setReplayPlaylists] = useState([]);
+  const [recentlyPlayedTracks, setRecentlyPlayedTracks] = useState([]);
 
   useEffect(() => {
     const fetchUserLibrary = async () => {
@@ -81,7 +84,7 @@ const App = () => {
           });
 
           const data = await response.json();
-          console.log(data,'data')
+          console.log(data, 'data');
 
           if (data && data.data) {
             allPlaylists = allPlaylists.concat(data.data);
@@ -92,9 +95,11 @@ const App = () => {
           }
         }
         const replayPlaylists = allPlaylists.filter(playlist =>
-          playlist.attributes.name.startsWith("Replay") || playlist.attributes.name.startsWith("Favorite Songs") || playlist.attributes.name.startsWith("Heavy Rotation Mix")
+          playlist.attributes.name.startsWith('Replay') ||
+          playlist.attributes.name.startsWith('Favorite Songs') ||
+          playlist.attributes.name.startsWith('Heavy Rotation Mix')
         );
-        console.log(replayPlaylists,'replay playlists')
+        console.log(replayPlaylists, 'replay playlists');
 
         // Fetch complete details for each replay playlist
         const replayPlaylistDetails = await Promise.all(replayPlaylists.map(async playlist => {
@@ -108,7 +113,7 @@ const App = () => {
           return data.data[0];
         }));
 
-        console.log(replayPlaylistDetails,'details')
+        console.log(replayPlaylistDetails, 'details');
         setReplayPlaylists(replayPlaylistDetails);
 
         // Cache the fetched playlists and timestamp
@@ -121,21 +126,51 @@ const App = () => {
       }
     };
 
+    const fetchRecentlyPlayedTracks = async () => {
+      try {
+        const response = await fetch('https://api.music.apple.com/v1/me/recent/played/tracks', {
+          headers: {
+            Authorization: `Bearer ${musicKitInstance.developerToken}`,
+            'Music-User-Token': musicUserToken,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        console.log('Recently Played Tracks:', data);
+        setRecentlyPlayedTracks(data.data);
+
+        // Cache the fetched recently played tracks and timestamp
+        localStorage.setItem(RECENTLY_PLAYED_CACHE_KEY, JSON.stringify(data.data));
+        localStorage.setItem(RECENTLY_PLAYED_CACHE_TIMESTAMP_KEY, Date.now().toString());
+
+      } catch (error) {
+        console.error('Error fetching recently played tracks:', error);
+      }
+    };
+
     const loadCachedData = () => {
       const cachedData = localStorage.getItem(CACHE_KEY);
       const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
       const cachedPlaylists = localStorage.getItem(PLAYLISTS_CACHE_KEY);
       const cachedPlaylistsTimestamp = localStorage.getItem(PLAYLISTS_CACHE_TIMESTAMP_KEY);
+      const cachedRecentlyPlayed = localStorage.getItem(RECENTLY_PLAYED_CACHE_KEY);
+      const cachedRecentlyPlayedTimestamp = localStorage.getItem(RECENTLY_PLAYED_CACHE_TIMESTAMP_KEY);
       const currentTime = Date.now();
 
-      if (cachedData && cachedTimestamp && cachedPlaylists && cachedPlaylistsTimestamp) {
+      if (cachedData && cachedTimestamp && cachedPlaylists && cachedPlaylistsTimestamp && cachedRecentlyPlayed && cachedRecentlyPlayedTimestamp) {
         const cacheAge = currentTime - parseInt(cachedTimestamp, 10);
         const playlistsCacheAge = currentTime - parseInt(cachedPlaylistsTimestamp, 10);
+        const recentlyPlayedCacheAge = currentTime - parseInt(cachedRecentlyPlayedTimestamp, 10);
 
-        if (cacheAge < CACHE_DURATION && playlistsCacheAge < CACHE_DURATION) {
+        if (cacheAge < CACHE_DURATION && playlistsCacheAge < CACHE_DURATION && recentlyPlayedCacheAge < CACHE_DURATION) {
           console.log('Using cached data');
           setUserLibrary(JSON.parse(cachedData));
           setReplayPlaylists(JSON.parse(cachedPlaylists));
+          setRecentlyPlayedTracks(JSON.parse(cachedRecentlyPlayed));
           setLoading(false);
           return true;
         }
@@ -147,6 +182,7 @@ const App = () => {
       if (!loadCachedData()) {
         fetchUserLibrary();
         fetchReplayPlaylists();
+        fetchRecentlyPlayedTracks();
       }
     }
   }, [musicKitInstance, musicUserToken]);
@@ -163,7 +199,14 @@ const App = () => {
     <div>
       <h1>Music Library</h1>
       <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
-      {selectedSong && <SongStats song={selectedSong} playlists={replayPlaylists} musicUserToken={musicUserToken} />}
+      {selectedSong && (
+        <SongStats
+          song={selectedSong}
+          playlists={replayPlaylists}
+          recentlyPlayedTracks={recentlyPlayedTracks}
+          musicUserToken={musicUserToken}
+        />
+      )}
     </div>
   );
 };
