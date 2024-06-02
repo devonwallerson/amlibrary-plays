@@ -67,23 +67,38 @@ const App = () => {
 
     const fetchReplayPlaylists = async () => {
       try {
-        const response = await fetch('https://api.music.apple.com/v1/me/library/playlists', {
-          headers: {
-            Authorization: `Bearer ${musicKitInstance.developerToken}`,
-            'Music-User-Token': musicUserToken,
-          },
-        });
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
+        let allPlaylists = [];
+        let offset = 0;
+        const limit = 25;
+        let hasNext = true;
+
+        while (hasNext) {
+          const response = await fetch(`https://api.music.apple.com/v1/me/library/playlists?limit=${limit}&offset=${offset}`, {
+            headers: {
+              Authorization: `Bearer ${musicKitInstance.developerToken}`,
+              'Music-User-Token': musicUserToken,
+            },
+          });
+
+          const data = await response.json();
+          console.log(data,'data')
+
+          if (data && data.data) {
+            allPlaylists = allPlaylists.concat(data.data);
+            hasNext = data.data.length === limit;
+            offset += limit;
+          } else {
+            hasNext = false;
+          }
         }
-        const data = await response.json();
-        const replayPlaylists = data.data.filter(playlist =>
-          playlist.attributes.playlistType === 'replay'
+        const replayPlaylists = allPlaylists.filter(playlist =>
+          playlist.attributes.name.startsWith("Replay") || playlist.attributes.name.startsWith("Favorite Songs") || playlist.attributes.name.startsWith("Heavy Rotation Mix")
         );
+        console.log(replayPlaylists,'replay playlists')
 
         // Fetch complete details for each replay playlist
         const replayPlaylistDetails = await Promise.all(replayPlaylists.map(async playlist => {
-          const response = await fetch(`https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}`, {
+          const response = await fetch(`https://api.music.apple.com/v1/me/library/playlists/${playlist.id}`, {
             headers: {
               Authorization: `Bearer ${musicKitInstance.developerToken}`,
               'Music-User-Token': musicUserToken,
@@ -93,6 +108,7 @@ const App = () => {
           return data.data[0];
         }));
 
+        console.log(replayPlaylistDetails,'details')
         setReplayPlaylists(replayPlaylistDetails);
 
         // Cache the fetched playlists and timestamp
