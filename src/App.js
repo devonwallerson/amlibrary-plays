@@ -3,15 +3,20 @@ import MusicKitContext from './MusicKitContext';
 import SearchBar from './SearchBar';
 import SongStats from './SongStats';
 
+// Use a cache to prevent user from having to reload their data every time they use the website. Data stays in cache for 30 minutes
 const CACHE_KEY = 'userLibraryCache';
 const CACHE_TIMESTAMP_KEY = 'userLibraryCacheTimestamp';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+const PLAYLISTS_CACHE_TIMESTAMP_KEY = 'userPlaylistsCacheTimestamp';
+const PLAYLISTS_CACHE_KEY = 'userPlaylistsCache';
 
 const App = () => {
+  // State variables for sign in, user library, loading screen, and selected song
   const { musicKitInstance, musicUserToken } = useContext(MusicKitContext);
   const [userLibrary, setUserLibrary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSong, setSelectedSong] = useState(null);
+  const [replayPlaylists, setReplayPlaylists] = useState([]);
 
   useEffect(() => {
     const fetchUserLibrary = async () => {
@@ -48,7 +53,6 @@ const App = () => {
 
         console.log('Library fetched!');
         setUserLibrary(allSongs);
-        setLoading(false);
 
         // Cache the fetched data and timestamp
         localStorage.setItem(CACHE_KEY, JSON.stringify(allSongs));
@@ -56,20 +60,66 @@ const App = () => {
 
       } catch (error) {
         console.error('Error fetching songs:', error.message);
+      } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchReplayPlaylists = async () => {
+      try {
+        const response = await fetch('https://api.music.apple.com/v1/me/library/playlists', {
+          headers: {
+            Authorization: `Bearer ${musicKitInstance.developerToken}`,
+            'Music-User-Token': musicUserToken,
+          },
+        });
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        const replayPlaylists = data.data.filter(playlist =>
+          playlist.attributes.playlistType === 'replay'
+        );
+
+        // Fetch complete details for each replay playlist
+        const replayPlaylistDetails = await Promise.all(replayPlaylists.map(async playlist => {
+          const response = await fetch(`https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}`, {
+            headers: {
+              Authorization: `Bearer ${musicKitInstance.developerToken}`,
+              'Music-User-Token': musicUserToken,
+            },
+          });
+          const data = await response.json();
+          return data.data[0];
+        }));
+
+        setReplayPlaylists(replayPlaylistDetails);
+
+        // Cache the fetched playlists and timestamp
+        localStorage.setItem(PLAYLISTS_CACHE_KEY, JSON.stringify(replayPlaylistDetails));
+        localStorage.setItem(PLAYLISTS_CACHE_TIMESTAMP_KEY, Date.now().toString());
+
+      } catch (error) {
+        console.error('Error fetching playlists:', error);
+        setReplayPlaylists([]);
       }
     };
 
     const loadCachedData = () => {
       const cachedData = localStorage.getItem(CACHE_KEY);
       const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+      const cachedPlaylists = localStorage.getItem(PLAYLISTS_CACHE_KEY);
+      const cachedPlaylistsTimestamp = localStorage.getItem(PLAYLISTS_CACHE_TIMESTAMP_KEY);
       const currentTime = Date.now();
 
-      if (cachedData && cachedTimestamp) {
+      if (cachedData && cachedTimestamp && cachedPlaylists && cachedPlaylistsTimestamp) {
         const cacheAge = currentTime - parseInt(cachedTimestamp, 10);
-        if (cacheAge < CACHE_DURATION) {
+        const playlistsCacheAge = currentTime - parseInt(cachedPlaylistsTimestamp, 10);
+
+        if (cacheAge < CACHE_DURATION && playlistsCacheAge < CACHE_DURATION) {
           console.log('Using cached data');
           setUserLibrary(JSON.parse(cachedData));
+          setReplayPlaylists(JSON.parse(cachedPlaylists));
           setLoading(false);
           return true;
         }
@@ -80,6 +130,7 @@ const App = () => {
     if (musicUserToken) {
       if (!loadCachedData()) {
         fetchUserLibrary();
+        fetchReplayPlaylists();
       }
     }
   }, [musicKitInstance, musicUserToken]);
@@ -96,7 +147,7 @@ const App = () => {
     <div>
       <h1>Music Library</h1>
       <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
-      {selectedSong && <SongStats song={selectedSong} musicUserToken={musicUserToken} />}
+      {selectedSong && <SongStats song={selectedSong} playlists={replayPlaylists} musicUserToken={musicUserToken} />}
     </div>
   );
 };
