@@ -217,7 +217,8 @@ const App = () => {
 
   return (
     <div>
-      <h1>Music Library</h1>
+      <h1>amlibrary-plays</h1>
+      <h3>Search a song in your Apple Music Library to see your user statistics.</h3>
       <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
       {selectedSong && (
         <SongStats
