@@ -23,6 +23,9 @@ const App = () => {
   const [selectedSong, setSelectedSong] = useState(null);
   const [replayPlaylists, setReplayPlaylists] = useState([]);
   const [recentlyPlayedTracks, setRecentlyPlayedTracks] = useState([]);
+  const [backgroundColors, setBackgroundColors] = useState([]);
+  
+
 
   useEffect(() => {
     const fetchUserLibrary = async () => {
@@ -165,6 +168,7 @@ const App = () => {
       const cachedRecentlyPlayed = localStorage.getItem(RECENTLY_PLAYED_CACHE_KEY);
       const cachedRecentlyPlayedTimestamp = localStorage.getItem(RECENTLY_PLAYED_CACHE_TIMESTAMP_KEY);
       const currentTime = Date.now();
+      
 
       if (cachedData && cachedTimestamp && cachedPlaylists && cachedPlaylistsTimestamp && cachedRecentlyPlayed && cachedRecentlyPlayedTimestamp) {
         const cacheAge = currentTime - parseInt(cachedTimestamp, 10);
@@ -193,9 +197,31 @@ const App = () => {
     }
   }, [musicKitInstance, musicUserToken]);
 
+  useEffect(() => {
+    if (backgroundColors.length > 0) {
+      const sortedColors = backgroundColors.sort((a, b) => {
+        const luminanceA = (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) / 255;
+        const luminanceB = (0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2]) / 255;
+        return luminanceA - luminanceB;
+      });
+
+      const gradient = `linear-gradient(45deg, ${sortedColors.map(color => `rgb(${color.join(',')})`).join(', ')})`;
+      const songContainer = document.querySelector('.songContainer');
+      if (songContainer) {
+        songContainer.style.background = gradient;
+      }
+    }
+  }, [backgroundColors]);
+
+  const handleExtractColors = (colors) => {
+    console.log('Received colors:', colors);
+    setBackgroundColors(colors);
+  };
+
   const handleSelectSong = (song) => {
     setSelectedSong(song);
   };
+
 
   if (signIn){
     return (
@@ -217,17 +243,20 @@ const App = () => {
 
   return (
     <div>
-      <h1>amlibrary-plays</h1>
-      <h3>Search a song in your Apple Music Library to see your user statistics.</h3>
-      <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
-      {selectedSong && (
-        <SongStats
-          song={selectedSong}
-          playlists={replayPlaylists}
-          recentlyPlayedTracks={recentlyPlayedTracks}
-          musicUserToken={musicUserToken}
-        />
-      )}
+      <h1 className = "generalInfo">amlibrary-plays</h1>
+      <h3 className = "generalInfo">Search a song in your Apple Music Library to see your user statistics.</h3>
+      <div className = "songContainer">
+        <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
+        {selectedSong && (
+          <SongStats
+            song={selectedSong}
+            playlists={replayPlaylists}
+            recentlyPlayedTracks={recentlyPlayedTracks}
+            musicUserToken={musicUserToken}
+            onExtractColors={handleExtractColors}
+          />
+        )}
+      </div>
     </div>
   );
 };

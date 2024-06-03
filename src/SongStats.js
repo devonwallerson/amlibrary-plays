@@ -2,6 +2,70 @@ import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import ColorThief from 'color-thief-browser';
+
+
+const SongStatsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const SongInfoContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-bottom: 20px;
+`;
+
+const Artwork = styled.img`
+  max-width: 300px;
+  max-height: 300px;
+  margin: 0 4em;
+`;
+
+const SongDetails = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+`;
+
+const SongName = styled.h1`
+  font-size: 2.5em;
+  color: white;
+  font-family: 'Archivo Black';
+`;
+
+const ArtistName = styled.h2`
+  font-size: 2em;
+  color: white;
+  font-family: 'Archivo Black';
+`;
+
+const AdditionalInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  width: 100%;
+`;
+
+const InfoItem = styled.div`
+  font-size: 1.2em;
+  color: white;
+`;
+
+const BadgesContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+`;
 
 const ShieldBadge = styled.div`
   display: inline-block;
@@ -30,7 +94,7 @@ const MixBadge = styled.div`
   line-height: 1.5;
 `;
 
-const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken }) => {
+const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken, onExtractColors }) => {
   const {
     name,
     artistName,
@@ -55,10 +119,15 @@ const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken }) =>
   const [mixes, setMixes] = useState([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [colorsExtracted, setColorsExtracted] = useState(false); // New state variable
+  const [prevSong, setPrevSong] = useState(null); // Track the previous song
+
+
 
   useEffect(() => {
-    const checkIfSongInPlaylists = async (songName, songDuration, songTrackNumber, songArtist) => {
+    const checkIfSongInPlaylists = async () => {
       setLoading(true);
+      setPrevSong(song); // Update the previous song state
       try {
         const years = [];
         const mixList = [];
@@ -102,10 +171,11 @@ const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken }) =>
       } catch (error) {
         console.error('Error checking if song is in playlists:', error);
       }
+      setColorsExtracted(false);
       setLoading(false);
     };
 
-    const checkIfSongRecentlyPlayed = (songName, songArtist) => {
+    const checkIfSongRecentlyPlayed = () => {
       const recentlyPlayed = recentlyPlayedTracks.some(track =>
         track.attributes.name === songName && track.attributes.artistName === songArtist
       );
@@ -113,58 +183,94 @@ const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken }) =>
     };
 
     if (song && song.attributes && playlists.length > 0) {
-      checkIfSongInPlaylists(songName, songDuration, songTrackNumber, songArtist);
-      checkIfSongRecentlyPlayed(songName, songArtist);
+      checkIfSongInPlaylists();
+      checkIfSongRecentlyPlayed();
     }
   }, [song, playlists, recentlyPlayedTracks, musicUserToken]);
 
+  useEffect(() => {
+    const extractColors = () => {
+      if (artwork && (!prevSong || prevSong.id !== song.id)) { // Check if the song has changed
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = artwork.url.replace('{w}', '300').replace('{h}', '300');
+
+        img.onload = () => {
+          const colorThief = new ColorThief();
+          const colors = colorThief.getPalette(img, 4); // Extract 5 dominant colors
+          
+          // Filter and sort by luminance
+          const filteredColors = colors
+            .map(color => {
+              const luminance = (0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]) / 255;
+              return { color, luminance };
+            })
+            .filter(({ luminance }) => luminance < 0.45) // Choose darker colors
+            .sort((a, b) => a.luminance - b.luminance) // Sort by luminance
+            .map(({ color }) => color);
+
+          const finalColors = filteredColors.length > 0 ? filteredColors : colors;
+
+          console.log('Extracted colors:', finalColors);
+          onExtractColors(finalColors);
+          setColorsExtracted(true); // Mark colors as extracted
+        };
+
+        img.onerror = (err) => {
+          console.error('Error loading image for color extraction:', err);
+        };
+      }
+    };
+
+    if (artwork && artwork.url) {
+      extractColors();
+    }
+  }, [artwork, onExtractColors]);
+
   return (
-    <div>
+    <SongStatsContainer>
       {loading ? (
         <div>Loading...</div>
       ) : (
         <>
-          <h2>Selected Song</h2>
-          {artwork && artwork.url ? (
-            <img src={artwork.url.replace('{w}', '300').replace('{h}', '300')} alt={`${name} album cover`} />
-          ) : (
-            <div>No artwork available</div>
-          )}
-          <ul>
-            <li><strong>Song Name:</strong> {name || 'N/A'}</li>
-            <li><strong>Artist Name:</strong> {artistName || 'N/A'}</li>
-            <li><strong>Album Name:</strong> {albumName || 'N/A'}</li>
-            <li><strong>Release Date:</strong> {releaseDate || 'N/A'}</li>
-            <li><strong>Number of Plays:</strong> {playCount !== undefined ? playCount : 'N/A'}</li>
-            <li><strong>Song Length:</strong> {length}</li>
-            <li><strong>Content Rating:</strong> {contentRating || 'N/A'}</li>
-            <li><strong>Song Genre:</strong> {genreNames ? genreNames.join(', ') : 'N/A'}</li>
-          </ul>
-          <h3>Replay Years</h3>
-          <ul>
+          <SongInfoContainer>
+            {artwork && artwork.url ? (
+              <Artwork src={artwork.url.replace('{w}', '300').replace('{h}', '300')} alt={`${name} album cover`} />
+            ) : (
+              <div>No artwork available</div>
+            )}
+            <SongDetails>
+              <SongName>{name || 'N/A'}</SongName>
+              <ArtistName>{artistName || 'N/A'}</ArtistName>
+            </SongDetails>
+          </SongInfoContainer>
+          <AdditionalInfoGrid>
+            <InfoItem><strong>Album Name:</strong> {albumName || 'N/A'}</InfoItem>
+            <InfoItem><strong>Release Date:</strong> {releaseDate || 'N/A'}</InfoItem>
+            <InfoItem><strong>Song Length:</strong> {length}</InfoItem>
+            <InfoItem><strong>Song Genre:</strong> {genreNames ? genreNames.join(', ') : 'N/A'}</InfoItem>
+          </AdditionalInfoGrid>
+          <BadgesContainer>
             {replayYears.map(({ year, position }) => (
               <ShieldBadge key={year} $rank={position}>
                 {`Replay ${year}`}<br />
-                {/*position <= 5 ? */`Song #${position}` /* : position <= 10 ? 'Top 10 Song' : <em>Playlist Song</em>*/}
+                {`Song #${position}`}
               </ShieldBadge>
             ))}
-          </ul>
-          <h3>Mixes</h3>
-          <ul>
             {mixes.map(({ name }, index) => (
               <MixBadge key={index} type={name}>
                 {name}
               </MixBadge>
             ))}
             {recentlyPlayed && (
-              <MixBadge key="recentlyPlayed" type = "Recently Played">
+              <MixBadge key="recentlyPlayed" type="Recently Played">
                 Recently Played
               </MixBadge>
             )}
-          </ul>
+          </BadgesContainer>
         </>
       )}
-    </div>
+    </SongStatsContainer>
   );
 };
 
@@ -173,6 +279,7 @@ SongStats.propTypes = {
   playlists: PropTypes.array.isRequired,
   recentlyPlayedTracks: PropTypes.array.isRequired,
   musicUserToken: PropTypes.string.isRequired,
+  onExtractColors: PropTypes.func.isRequired,
 };
 
 export default SongStats;

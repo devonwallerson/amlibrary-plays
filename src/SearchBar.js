@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import './SearchBar.css'; // Import the CSS file
 
 const SearchBar = ({ userLibrary, onSelectSong }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,16 +31,17 @@ const SearchBar = ({ userLibrary, onSelectSong }) => {
   };
 
   return (
-    <div>
+    <div className="search-bar-container">
       <input
         type="text"
         placeholder="Search for a song or artist"
         value={searchQuery}
         onChange={(e) => handleSearch(e.target.value)}
+        className="search-bar-input"
       />
-      <ul>
-        {searchResults.slice(0, 5).map(song => (
-          <li key={song.id} onClick={() => handleSelectSong(song)}>
+      <ul className="search-results-list">
+        {searchResults.slice(0, 10).map((song, index) => (
+          <li key={song.id} onClick={() => handleSelectSong(song)} className="search-result-item">
             {song.attributes.name} by {song.attributes.artistName}
           </li>
         ))}

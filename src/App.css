@@ -62,3 +62,21 @@ body {
   }
 }
 
+.songContainer {
+  border-radius: 15px;
+  padding: 40px;
+  margin: 40px auto;
+  width: 75%;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  background-color: #151515;
+  color: #f1f1f1;
+  min-height: 38em;
+
+  animation: Gradient 25s ease infinite;
+}
+
+.generalInfo{
+  text-align:center;
+  margin:1.5em;
+  color:white;
+}
