@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import MusicKitContext from './MusicKitContext';
 import SearchBar from './SearchBar';
 import SongStats from './SongStats';
+import './App.css';
 
 // Use a cache to prevent user from having to reload their data every time they use the website. Data stays in cache for 30 minutes
 const CACHE_KEY = 'userLibraryCache';
@@ -16,7 +17,9 @@ const App = () => {
   // State variables for sign in, user library, loading screen, and selected song
   const { musicKitInstance, musicUserToken } = useContext(MusicKitContext);
   const [userLibrary, setUserLibrary] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [signIn, setSignIn] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadedSongCount, setLoadedSongCount] = useState(0); // State to track the count of loaded songs
   const [selectedSong, setSelectedSong] = useState(null);
   const [replayPlaylists, setReplayPlaylists] = useState([]);
   const [recentlyPlayedTracks, setRecentlyPlayedTracks] = useState([]);
@@ -27,7 +30,8 @@ const App = () => {
         console.error('No music user token found');
         return;
       }
-
+      setSignIn(false);
+      setLoading(true);
       try {
         let allSongs = [];
         let offset = 0;
@@ -47,6 +51,7 @@ const App = () => {
 
           if (data && data.data) {
             allSongs = allSongs.concat(data.data);
+            setLoadedSongCount(prevCount => prevCount + data.data.length); // Update the loaded song count
             hasNext = data.data.length === limit;
             offset += limit;
           } else {
@@ -172,6 +177,7 @@ const App = () => {
           setReplayPlaylists(JSON.parse(cachedPlaylists));
           setRecentlyPlayedTracks(JSON.parse(cachedRecentlyPlayed));
           setLoading(false);
+          setSignIn(false);
           return true;
         }
       }
@@ -191,9 +197,23 @@ const App = () => {
     setSelectedSong(song);
   };
 
+  if (signIn){
+    return (
+      <div className="preContainer">
+        <img src="AppleMusic.png" alt="Apple Music Icon" className="centeredImage" />
+        <h1 className = "preMessage loadingMessage">Please sign in with Apple Music.</h1>
+        <h2 className = "preMessage loadingMessage2">Ensure that you have browser popups enabled.</h2>
+      </div>
+     );}
   if (loading) {
-    return <div>Loading...</div>;
-  }
+    return (
+    <div className="preContainer">
+      <img src="AppleMusic.png" alt="Apple Music Icon" className="centeredImage" />
+      <h1 className = "preMessage loadingMessage">Loading User Data...</h1>
+      <h2 className = "preMessage loadingMessage2">({loadedSongCount} songs loaded so far...)</h2>
+    </div>
+  );
+}
 
   return (
     <div>
