@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import MusicKitContext from './MusicKitContext';
 import SearchBar from './SearchBar';
 import SongStats from './SongStats';
+import Navbar from './Navbar';
 import './App.css';
 
 // Use a cache to prevent user from having to reload their data every time they use the website. Data stays in cache for 30 minutes
@@ -24,8 +25,7 @@ const App = () => {
   const [replayPlaylists, setReplayPlaylists] = useState([]);
   const [recentlyPlayedTracks, setRecentlyPlayedTracks] = useState([]);
   const [backgroundColors, setBackgroundColors] = useState([]);
-  
-
+  const [replayArtists, setReplayArtists] = useState([]); // New state for replay artists
 
   useEffect(() => {
     const fetchUserLibrary = async () => {
@@ -73,6 +73,7 @@ const App = () => {
         console.error('Error fetching songs:', error.message);
       } finally {
         setLoading(false);
+        renderContent();
       }
     };
 
@@ -82,7 +83,10 @@ const App = () => {
         let offset = 0;
         const limit = 25;
         let hasNext = true;
-
+        let allArtists = [];
+    
+        console.log("Fetching Replay Playlists...");
+    
         while (hasNext) {
           const response = await fetch(`https://api.music.apple.com/v1/me/library/playlists?limit=${limit}&offset=${offset}`, {
             headers: {
@@ -90,10 +94,10 @@ const App = () => {
               'Music-User-Token': musicUserToken,
             },
           });
-
+    
           const data = await response.json();
-          console.log(data, 'data');
-
+          console.log("Fetched Playlists Batch:", data);
+    
           if (data && data.data) {
             allPlaylists = allPlaylists.concat(data.data);
             hasNext = data.data.length === limit;
@@ -102,32 +106,52 @@ const App = () => {
             hasNext = false;
           }
         }
+        console.log("All Playlists Fetched:", allPlaylists);
+    
         const replayPlaylists = allPlaylists.filter(playlist =>
           playlist.attributes.name.startsWith('Replay') ||
           playlist.attributes.name.startsWith('Favorite Songs') ||
           playlist.attributes.name.startsWith('Heavy Rotation Mix')
         );
-        console.log(replayPlaylists, 'replay playlists');
-
+        console.log("Filtered Replay Playlists:", replayPlaylists);
+    
         // Fetch complete details for each replay playlist
         const replayPlaylistDetails = await Promise.all(replayPlaylists.map(async playlist => {
-          const response = await fetch(`https://api.music.apple.com/v1/me/library/playlists/${playlist.id}`, {
+          const response = await fetch(`https://api.music.apple.com/v1/me/library/playlists/${playlist.id}/tracks`, {
             headers: {
               Authorization: `Bearer ${musicKitInstance.developerToken}`,
               'Music-User-Token': musicUserToken,
             },
           });
           const data = await response.json();
-          return data.data[0];
+          console.log(`Fetched Playlist Tracks for ${playlist.attributes.name}:`, data);
+    
+          const tracks = data.data || [];
+          console.log(`Tracks in ${playlist.attributes.name}:`, tracks);
+    
+          // Collect artist names from each track
+          tracks.forEach(track => {
+            if (track.attributes && track.attributes.artistName) {
+              allArtists.push(track.attributes.artistName);
+            }
+          });
+    
+          return playlist; // Return the playlist itself since we don't need extra details
         }));
-
-        console.log(replayPlaylistDetails, 'details');
+    
+        console.log("Replay Playlist Details:", replayPlaylistDetails);
+        console.log("All Artists Collected:", allArtists);
+    
         setReplayPlaylists(replayPlaylistDetails);
-
+        setReplayArtists(allArtists);
+    
         // Cache the fetched playlists and timestamp
         localStorage.setItem(PLAYLISTS_CACHE_KEY, JSON.stringify(replayPlaylistDetails));
         localStorage.setItem(PLAYLISTS_CACHE_TIMESTAMP_KEY, Date.now().toString());
-
+    
+        // Optionally, you can also cache the artist names
+        localStorage.setItem('replayArtistsCache', JSON.stringify(allArtists));
+    
       } catch (error) {
         console.error('Error fetching playlists:', error);
         setReplayPlaylists([]);
@@ -160,33 +184,37 @@ const App = () => {
       }
     };
 
-    const loadCachedData = () => {
-      const cachedData = localStorage.getItem(CACHE_KEY);
-      const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
-      const cachedPlaylists = localStorage.getItem(PLAYLISTS_CACHE_KEY);
-      const cachedPlaylistsTimestamp = localStorage.getItem(PLAYLISTS_CACHE_TIMESTAMP_KEY);
-      const cachedRecentlyPlayed = localStorage.getItem(RECENTLY_PLAYED_CACHE_KEY);
-      const cachedRecentlyPlayedTimestamp = localStorage.getItem(RECENTLY_PLAYED_CACHE_TIMESTAMP_KEY);
-      const currentTime = Date.now();
-      
+const loadCachedData = () => {
+  console.log("Loading Cached Data...");
+  const cachedData = localStorage.getItem(CACHE_KEY);
+  const cachedTimestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+  const cachedPlaylists = localStorage.getItem(PLAYLISTS_CACHE_KEY);
+  const cachedPlaylistsTimestamp = localStorage.getItem(PLAYLISTS_CACHE_TIMESTAMP_KEY);
+  const cachedRecentlyPlayed = localStorage.getItem(RECENTLY_PLAYED_CACHE_KEY);
+  const cachedRecentlyPlayedTimestamp = localStorage.getItem(RECENTLY_PLAYED_CACHE_TIMESTAMP_KEY);
+  const cachedReplayArtists = localStorage.getItem('replayArtistsCache');
+  const currentTime = Date.now();
 
-      if (cachedData && cachedTimestamp && cachedPlaylists && cachedPlaylistsTimestamp && cachedRecentlyPlayed && cachedRecentlyPlayedTimestamp) {
-        const cacheAge = currentTime - parseInt(cachedTimestamp, 10);
-        const playlistsCacheAge = currentTime - parseInt(cachedPlaylistsTimestamp, 10);
-        const recentlyPlayedCacheAge = currentTime - parseInt(cachedRecentlyPlayedTimestamp, 10);
+  if (cachedData && cachedTimestamp && cachedPlaylists && cachedPlaylistsTimestamp && cachedRecentlyPlayed && cachedRecentlyPlayedTimestamp && cachedReplayArtists) {
+    const cacheAge = currentTime - parseInt(cachedTimestamp, 10);
+    const playlistsCacheAge = currentTime - parseInt(cachedPlaylistsTimestamp, 10);
+    const recentlyPlayedCacheAge = currentTime - parseInt(cachedRecentlyPlayedTimestamp, 10);
 
-        if (cacheAge < CACHE_DURATION && playlistsCacheAge < CACHE_DURATION && recentlyPlayedCacheAge < CACHE_DURATION) {
-          console.log('Using cached data');
-          setUserLibrary(JSON.parse(cachedData));
-          setReplayPlaylists(JSON.parse(cachedPlaylists));
-          setRecentlyPlayedTracks(JSON.parse(cachedRecentlyPlayed));
-          setLoading(false);
-          setSignIn(false);
-          return true;
-        }
-      }
-      return false;
-    };
+    if (cacheAge < CACHE_DURATION && playlistsCacheAge < CACHE_DURATION && recentlyPlayedCacheAge < CACHE_DURATION) {
+      console.log('Using cached data');
+      setUserLibrary(JSON.parse(cachedData));
+      setReplayPlaylists(JSON.parse(cachedPlaylists));
+      setRecentlyPlayedTracks(JSON.parse(cachedRecentlyPlayed));
+      setReplayArtists(JSON.parse(cachedReplayArtists)); // Set the replay artists from cache
+      setLoading(false);
+      setSignIn(false);
+      renderContent();
+      return true;
+    }
+  }
+  return false;
+};
+
 
     if (musicUserToken) {
       if (!loadCachedData()) {
@@ -222,6 +250,56 @@ const App = () => {
     setSelectedSong(song);
   };
 
+  const [activePage, setActivePage] = useState('song'); // Default to 'song' page
+
+  const handleNavItemClick = (page) => {
+    setActivePage(page);
+  };
+
+  const renderContent = () => {
+    switch (activePage) {
+      case 'artist':
+        return <h3 className="generalInfo">Welcome to your Apple Music Library</h3>;
+      case 'song':
+        return (
+          <div>
+              <Navbar onNavItemClick={handleNavItemClick}></Navbar>
+              <div className="songContainer">
+                <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
+                {selectedSong && (
+                  <SongStats
+                  song={selectedSong}
+                  playlists={replayPlaylists}
+                  recentlyPlayedTracks={recentlyPlayedTracks}
+                  musicUserToken={musicUserToken}
+                  onExtractColors={handleExtractColors}
+                  replayArtists={replayArtists} // Pass replay artists to SongStats
+                />
+            )}
+            </div>
+          </div>
+          
+        );
+      default:
+        return (
+          <div>
+          <Navbar onNavItemClick={handleNavItemClick} ></Navbar>
+          <div className="songContainer">
+            <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
+            {selectedSong && (
+              <SongStats
+                song={selectedSong}
+                playlists={replayPlaylists}
+                recentlyPlayedTracks={recentlyPlayedTracks}
+                musicUserToken={musicUserToken}
+                onExtractColors={handleExtractColors}
+                replayArtists={replayArtists} // Pass replay artists to SongStats
+              />
+            )}
+          </div></div>
+        );
+    }
+  };
 
   if (signIn){
     return (
@@ -239,24 +317,13 @@ const App = () => {
       <h2 className = "preMessage loadingMessage2">({loadedSongCount} songs loaded so far...)</h2>
     </div>
   );
-}
+  }
 
   return (
     <div>
       <h1 className = "generalInfo">amlibrary-plays</h1>
       <h3 className = "generalInfo">Search a song in your Apple Music Library to see your user statistics.</h3>
-      <div className = "songContainer">
-        <SearchBar userLibrary={userLibrary} onSelectSong={handleSelectSong} />
-        {selectedSong && (
-          <SongStats
-            song={selectedSong}
-            playlists={replayPlaylists}
-            recentlyPlayedTracks={recentlyPlayedTracks}
-            musicUserToken={musicUserToken}
-            onExtractColors={handleExtractColors}
-          />
-        )}
-      </div>
+      {renderContent()}
     </div>
   );
 };
