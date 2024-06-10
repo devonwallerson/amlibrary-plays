@@ -259,7 +259,9 @@ const loadCachedData = () => {
   const renderContent = () => {
     switch (activePage) {
       case 'artist':
-        return <h3 className="generalInfo">Welcome to your Apple Music Library</h3>;
+        return <h3 className="generalInfo">Coming Soon</h3>;
+      case 'replay':
+        return <h3 className='generalInfo'>Coming Soon</h3>
       case 'song':
         return (
           <div>
