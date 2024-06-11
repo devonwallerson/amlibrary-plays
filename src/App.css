@@ -5,7 +5,9 @@ body {
   background-color: black;
 }
 
-@keyframes Gradient {
+/* App.css */
+
+@keyframes moveGradient {
   0% {
     background-position: 0% 50%;
   }
@@ -16,6 +18,12 @@ body {
     background-position: 0% 50%;
   }
 }
+
+.songContainer {
+  background-size: 200% 200%;
+  animation: moveGradient 10s ease infinite;
+}
+
 
 @keyframes jump {
   0%, 100% {
@@ -71,8 +79,6 @@ body {
   background-color: #151515;
   color: #f1f1f1;
   min-height: 38em;
-
-  animation: Gradient 25s ease infinite;
 }
 
 .generalInfo{

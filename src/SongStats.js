@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import ColorThief from 'color-thief-browser';
+import './App.css';
 
 
 const SongStatsContainer = styled.div`
@@ -190,42 +191,73 @@ const SongStats = ({ song, playlists, recentlyPlayedTracks, musicUserToken, onEx
 
   useEffect(() => {
     const extractColors = () => {
+      console.log("New song loading");
+      console.log(typeof artwork !== "undefined", "artwork available");
+      console.log(!prevSong || prevSong.id === song.id, "is it not the same song");
+  
       if (artwork && (!prevSong || prevSong.id !== song.id)) { // Check if the song has changed
         const img = new Image();
         img.crossOrigin = "Anonymous";
         img.src = artwork.url.replace('{w}', '300').replace('{h}', '300');
-
+  
         img.onload = () => {
           const colorThief = new ColorThief();
-          const colors = colorThief.getPalette(img, 4); // Extract 5 dominant colors
-          
+          const colors = colorThief.getPalette(img, 2); // Extract 4 dominant colors
+  
+          // Log the raw extracted colors
+          console.log('Raw extracted colors:', colors);
+  
           // Filter and sort by luminance
           const filteredColors = colors
             .map(color => {
               const luminance = (0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]) / 255;
               return { color, luminance };
             })
-            .filter(({ luminance }) => luminance < 0.45) // Choose darker colors
+            .filter(({ luminance }) => luminance < 0.6) // Relaxed the luminance threshold to include slightly brighter colors
             .sort((a, b) => a.luminance - b.luminance) // Sort by luminance
             .map(({ color }) => color);
-
-          const finalColors = filteredColors.length > 0 ? filteredColors : colors;
-
-          console.log('Extracted colors:', finalColors);
+  
+          // Ensure a minimum number of colors are returned
+          const finalColors = filteredColors.length >= 4 ? filteredColors : colors.slice(0, 4);
+  
+          // Log the filtered colors
+          console.log('Filtered and sorted colors:', filteredColors);
+          console.log('Final colors:', finalColors);
+  
+          // Sort colors by luminance again to ensure the darkest color is first
+          const sortedColors = finalColors.sort((a, b) => {
+            const luminanceA = (0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]) / 255;
+            const luminanceB = (0.299 * b[0] + 0.587 * b[1] + 0.114 * b[2]) / 255;
+            return luminanceA - luminanceB;
+          });
+  
+          // Create a gradient with the darkest color being the most prominent
+          const gradient = `linear-gradient(45deg, rgb(${sortedColors[0].join(',')}), rgb(${sortedColors[0].join(',')}) 50%, ${sortedColors.map(color => `rgb(${color.join(',')})`).join(', ')})`;
+  
+          const songContainer = document.querySelector('.songContainer');
+          if (songContainer) {
+            songContainer.style.background = gradient;
+            songContainer.style.backgroundSize = '200% 200%';
+            songContainer.style.animation = 'moveGradient 10s ease infinite';
+          }
+  
+          console.log('Sorted colors:', sortedColors);
           onExtractColors(finalColors);
           setColorsExtracted(true); // Mark colors as extracted
         };
-
+  
         img.onerror = (err) => {
           console.error('Error loading image for color extraction:', err);
         };
       }
     };
-
+  
     if (artwork && artwork.url) {
       extractColors();
     }
   }, [artwork, onExtractColors]);
+  
+  
 
   return (
     <SongStatsContainer>

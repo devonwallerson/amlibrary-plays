@@ -259,9 +259,15 @@ const loadCachedData = () => {
   const renderContent = () => {
     switch (activePage) {
       case 'artist':
-        return <h3 className="generalInfo">Coming Soon</h3>;
+        return <div>
+              <Navbar onNavItemClick={handleNavItemClick}></Navbar>
+              <h3 className="generalInfo">Coming Soon</h3>;
+              </div>
       case 'replay':
-        return <h3 className='generalInfo'>Coming Soon</h3>
+        return <div>
+            <Navbar onNavItemClick={handleNavItemClick}></Navbar>
+            <h3 className="generalInfo">Coming Soon</h3>;
+        </div>
       case 'song':
         return (
           <div>

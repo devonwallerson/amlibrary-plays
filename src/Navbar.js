@@ -9,6 +9,7 @@ const Navbar = ({ onNavItemClick }) => {
       <ul className="navbar-list">
         <li className="navbar-item" onClick={() => onNavItemClick('song')}>Song Stats</li>
         <li className="navbar-item" onClick={() => onNavItemClick('artist')}>Artist Stats</li>
+        <li className="navbar-item" onClick={() => onNavItemClick('replay')}>Replay Stats</li>
       </ul>
     </nav>
   );
